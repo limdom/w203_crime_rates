@@ -1,0 +1,342 @@
+---
+title: "Impact of Household Income on Crime Rate"
+subtitle: "W 203: Lab 2"
+author: "Dominic Lim, Emerald Swei, Shalini Chawla" 
+date: "Mar 29, 2022"
+output:
+  pdf_document:
+    toc: yes
+    number_sections: yes
+    toc_depth: 3
+  html_document:
+    toc: yes
+    toc_depth: '3'
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+\newpage
+\setcounter{page}{1}
+
+```{r load packages and set options, include=FALSE}
+library(tidyverse) 
+library(haven)
+library(magrittr)
+library(knitr)
+library(patchwork)
+library(moments)
+library(effsize)
+library(car)
+library(sandwich)
+library(lmtest)
+library(stargazer)
+library(GGally)
+library(corrplot)
+library(Hmisc)
+
+theme_set(theme_bw())
+
+options(tinytex.verbose = TRUE)
+options(scipen = 999)
+knitr::opts_chunk$set(echo=FALSE, message=FALSE)
+
+```
+
+
+```{r load data}
+#COMMENT ONE OUT
+
+#df <- read_csv('~/Desktop/W203/github/lab_02_section_08_team_04/src/data/processed/crimerates_cleaned.csv')
+df <- read_csv('../src/data/processed/crimerates_cleaned.csv')
+nrows <- nrow(df)
+```
+
+
+```{r data for accounting table}
+accounting_table <- matrix(c(
+  'Original Dataset', 2215, 'Total number of records in original data', 
+  'Missing Crime Data', 313, 'Samples with missing data for one or more crime categories',
+  'Final Dataset', 2215, 'Missing values populated with median value - no samples dropped'), 
+  ncol=3, byrow=TRUE)
+colnames(accounting_table) <- c('Data Source','Count', 'Description')
+
+```
+
+```{r create accounting table}
+kable(
+  accounting_table,
+  digits = 2,
+  caption = 'Accounting Table', 
+  booktabs = TRUE, 
+)
+```
+
+
+## Distribution of Response Variable  
+
+```{r, fig.height = 3}
+plot1 <- ggplot(data = df, aes(x = totCrimesPerPop)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of Crime Rate", x = "Crime Rate", y = "Count") 
+
+plot2 <- ggplot(data = df, aes(x = totCrimesPerPop)) +
+  geom_histogram(bins = 100) +
+  scale_x_log10() +
+  labs(title = "Distribution of Log(Crime Rate)", x = "Log(Crime Rate)", y = "Count") 
+
+plot1 | plot2
+```
+
+## Build Models
+
+```{r build models, echo=FALSE}
+model_1 <- lm(log(totCrimesPerPop) ~ medIncomein000s, data = df)
+model_2 <- lm(log(totCrimesPerPop) ~ medIncomein000s + PctRecImmig5 + PctNotHSGrad + PctUnemployed + PopDens, data = df)
+model_3 <- lm(log(totCrimesPerPop) ~ medIncomein000s + PctRecImmig5 + PctNotHSGrad + PctUnemployed + PopDens + PctFam2Par + PctPopUnderPov + PctVacMore6Mos + PctShelter + MedYrHousBuilt, data = df)
+```
+
+
+$$
+\begin{aligned} 
+log(totCrimesPerPop) &= \beta_{0} + \beta_{1}medIncomein000s + \epsilon 
+\end{aligned}
+$$
+
+$$
+\begin{aligned} 
+log(totCrimesPerPop) = \beta_{0} &+ \beta_{1}medIncomein000s + \beta_{2}PctRecImmig5 + \beta_{3} PctNotHSGrad \\ &+\beta_{4}PctUnemployed + \beta_{5}PopDens + \epsilon 
+\end{aligned}
+$$
+
+$$
+\begin{aligned} 
+log(totCrimesPerPop) = \beta_{0} &+ \beta_{1}medIncomein000s + \beta_{2}PctRecImmig5 + \beta_{3} PctNotHSGrad \\
+&+ \beta_{4}PctUnemployed + \beta_{5}PopDen + \beta_{6}PctFam2Par + \beta_{7}PctPopUnderPov \\
+&+ \beta_{8}PctVacMore6Mos + \beta_{9}PctShelter + \beta_{10}MedYrHousBuilt + \epsilon 
+\end{aligned}
+$$
+
+## Model Performance Evaluation
+* The MSE(Mean Squared Residual) for model_1 is `r mean(resid(model_1)^2)`, for model_2, the value is `r mean(resid(model_2)^2)` and for model_3, the value is `r mean(resid(model_3)^2)`, placing model_3 as our best performing model.  
+
+* Taking a look at the coefficient tests for the models, Median Income is significant at .001 alpha level in all 3 models with its coefficient going down for -0.024 to -0.021 to -0.005.
+
+```{r coeftest, results=FALSE}
+coeftest(model_1, vcovHC)
+coeftest(model_2, vcovHC)
+coeftest(model_3, vcovHC)
+```
+
+* We compare model_2 to model_1 using the anova() function to see if model_2 is a better representation of our population. Then we compare model_3 with model_2 to see if model_3 is a better fit. Both F-Tests return a p value lower than .05 indicating that the fuller model (the model with more variables) is better than the one with fewer variables again placing our third model as the best out of the three.
+
+```{r compare models using F-Test, results=FALSE}
+anova(model_1, model_2, test = "F")
+anova(model_2, model_3, test = "F")
+```
+
+# Results 
+## Model Estimates  
+```{r print model estimates, warning = FALSE, results = 'asis'}
+
+stargazer(
+  model_1,
+  model_2,
+  model_3,
+  type = "latex",
+  header = FALSE,
+  title = "Impact of median income on crime rate",
+  dep.var.labels = c("Crime Rate Per Capita"),
+  covariate.labels = c("Median Income in 000s", 
+                       "Percent Immigrants",
+                       "Percent Non HS Graduates",
+                       "Percent Unemployed",
+                       "Population Density",
+                       "Percent 2 Parent Families",
+                       "Percent Under Poverty",
+                       "Percent Vacant Homes",
+                       "Percent Living in Shelters",
+                       "Median Yr House Built"),
+  column.sep.width = "1pt",
+  #single.row = TRUE,
+  no.space = TRUE,
+  omit.stat = "f"
+  #se = list(se.model4)
+  #star.cutoffs = c(0.05, 0.01, 0.001)
+  )
+
+# summary(model_1)
+# summary(model_2)
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(model_1, which = 1, main="Model 1")
+plot(model_2, which = 1, main="Model 2")
+plot(model_3, which = 1, main="Model 3")
+par(mfrow=c(1,1))
+```
+
+When we take a look at plots of the predictions against the residuals, we see again that model_3's plot appears to be the straightest across the predictions and again closest to 0 on the residuals axis.
+```{r, fig.height = 3, fig.cap = "Predictions vs. Residuals"}
+par(mfrow=c(2,2))
+mat <- matrix(c(1,3,2,0), 2)
+df %>%
+  mutate(
+    model_1_preds = predict(model_1),
+    model_1_resids = resid(model_1)
+    ) %>% 
+  ggplot(aes(model_1_preds, model_1_resids)) +
+  geom_point() +
+  stat_smooth()
+df %>%
+  mutate(
+    model_2_preds = predict(model_2),
+    model_2_resids = resid(model_2)
+    ) %>% 
+  ggplot(aes(model_2_preds, model_2_resids)) +
+  geom_point() +
+  stat_smooth()
+df %>%
+  mutate(
+    model_3_preds = predict(model_3),
+    model_3_resids = resid(model_3)
+    ) %>% 
+  ggplot(aes(model_3_preds, model_3_resids)) +
+  geom_point() +
+  stat_smooth()
+par(mfrow=c(1,1))
+```
+
+```{r, fig.height = 3, fig.cap="Residuals vs. Median Income", fig.show='hide'}
+par(mfrow=c(2,2))
+df %>%
+  mutate(
+    model_1_resids = resid(model_1)
+    ) %>% 
+  ggplot(aes(medIncomein000s, model_1_resids)) +
+  geom_point() +
+  stat_smooth()
+df %>%
+  mutate(
+    model_2_resids = resid(model_2)
+    ) %>% 
+  ggplot(aes(medIncomein000s, model_2_resids)) +
+  geom_point() +
+  stat_smooth()
+df %>%
+  mutate(
+    model_3_resids = resid(model_3)
+    ) %>% 
+  ggplot(aes(medIncomein000s, model_3_resids)) +
+  geom_point() +
+  stat_smooth()
+par(mfrow=c(1,1))
+```
+**Independent and Identically Distributed (I.I.D)**
+
+```{r}
+vif(model_3)
+```
+
+```{r fig.dim=c(10,8)}
+# df %>%
+#   select(medIncomein000s, PctRecImmig5, PctNotHSGrad, PctUnemployed, PopDens, PctFam2Par, PctPopUnderPov, PctVacMore6Mos, PctShelter, MedYrHousBuilt) %>%ggpairs(upper = list(continuous = wrap("cor", size = 3)))
+
+c_df <- cor(select(df, c('medIncomein000s', 'PctRecImmig5', 'PctNotHSGrad', 'PctUnemployed', 'PopDens', 'PctFam2Par', 'PctPopUnderPov', 'PctVacMore6Mos', 'PctShelter', 'MedYrHousBuilt')))
+
+corrplot(c_df, type = 'lower', method = 'color', addCoef.col = 'black', order = 'alphabet')
+```
+
+
+## Additional Assumptions:
+In addition to the two assumptions of our large-sample model, we wanted to consider additional assumptions that may strengthen our trust in our estimators.
+
+**Homoscedasticity of Residuals**
+
+To test for homoscedasticity, we conducted the Breusch–Pagan test in which we rejected the NULL hypothesis of homoscedasticity. However, from the below Scale-Location plot, we can see that the residuals are spread equally along the ranges of predictors. There is a general linear quality to the plot suggesting Homoscedascitiy.
+
+```{r Breusch-Pagan test}
+bptest(model_3)
+plot(model_3, which =3)
+```
+
+**Normality of Errors**
+
+To test for Normality of Errors, we conducted the Shapiro–Wilk test and Jarque–Bera test in which we rejected the NULL hypothesis of Normal Distribution of Residuals. However, from the below Normal QQ plot and Histogram of Residuals, we can see that the residuals are appear normally distributed. One thing to note is that Normal QQ plot shows some curvilinearity in the tails, suggests that there are some extreme values at the tails.
+
+
+```{r, fig.height = 3}
+set.seed(741)
+shapiro.test(sample(model_3$residuals, size = 2215, replace=TRUE))
+jarque.test(model_3$residuals)
+
+par(mfrow=c(1,2))
+plot(model_3, which = 2)
+hist(model_3$residuals, breaks = 20, main = "Residuals")
+
+```
+
+```{r}
+plot1 <- ggplot(data = df, aes(x = medIncomein000s)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of medIncomein000s", x = "Crime Rate", y = "Count")
+
+plot2 <- ggplot(data = df, aes(x = PctRecImmig5)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of PctRecImmig5", x = "Crime Rate", y = "Count") 
+
+plot4 <- ggplot(data = df, aes(x = PctNotHSGrad)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of PctNotHSGrad", x = "Crime Rate", y = "Count") 
+
+plot5 <- ggplot(data = df, aes(x = PctUnemployed)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of PctUnemployed", x = "Crime Rate", y = "Count") 
+
+plot6 <- ggplot(data = df, aes(x = PopDens)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of PopDens", x = "Crime Rate", y = "Count") 
+
+plot7 <- ggplot(data = df, aes(x = PctFam2Par)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of PctFam2Par", x = "Crime Rate", y = "Count") 
+
+plot8 <- ggplot(data = df, aes(x = PctPopUnderPov)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of PctPopUnderPov", x = "Crime Rate", y = "Count") 
+
+plot9 <- ggplot(data = df, aes(x = PctVacMore6Mos)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of PctVacMore6Mos", x = "Crime Rate", y = "Count") 
+
+plot10 <- ggplot(data = df, aes(x = PctShelter)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of CPctShelter", x = "Crime Rate", y = "Count") 
+
+plot11 <- ggplot(data = df, aes(x = MedYrHousBuilt)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of MedYrHousBuilt", x = "Crime Rate", y = "Count")
+
+plot1
+plot2
+plot4
+plot5
+plot6
+plot7
+plot8
+plot9
+plot10
+plot11
+```
+
+
+
+```{r}
+plot(model_3, which = 1)
+plot(model_3, which = 2)
+plot(model_3, which = 3)
+plot(model_3, which = 4)
+plot(model_3, which = 5)
+```
+

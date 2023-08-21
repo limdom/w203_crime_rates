@@ -1,0 +1,317 @@
+---
+title: "203 Lab 2"
+author: "Dominic Lim, Emerald Swei, Shalini Chawla"
+date: "Mar 21, 2022"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+install.packages(c('pracma'))
+```
+
+
+```{r load packages, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(magrittr)
+library(ggplot2)
+library(patchwork)
+library(sandwich)
+library(lmtest)
+library(pracma)
+```
+
+```{r set themes, echo=FALSE}
+theme_set(theme_minimal())
+knitr::opts_chunk$set(dpi = 300)
+```
+
+```{r load data convert data types}
+crime_data <- read.csv('src/data/raw/CommViolPredUnnormalizedData.txt', header=FALSE, sep=',')
+
+colnames(crime_data) <- c(
+'communityname',
+'state',
+'countyCode',
+'communityCode',
+'fold',
+'population',
+'householdsize',
+'racepctblack',
+'racePctWhite',
+'racePctAsian',
+'racePctHisp',
+'agePct12t21',
+'agePct12t29',
+'agePct16t24',
+'agePct65up',
+'numbUrban',
+'pctUrban',
+'medIncome',
+'pctWWage',
+'pctWFarmSelf',
+'pctWInvInc',
+'pctWSocSec',
+'pctWPubAsst',
+'pctWRetire',
+'medFamInc',
+'perCapInc',
+'whitePerCap',
+'blackPerCap',
+'indianPerCap',
+'AsianPerCap',
+'OtherPerCap',
+'HispPerCap',
+'NumUnderPov',
+'PctPopUnderPov',
+'PctLess9thGrade',
+'PctNotHSGrad',
+'PctBSorMore',
+'PctUnemployed',
+'PctEmploy',
+'PctEmplManu',
+'PctEmplProfServ',
+'PctOccupManu',
+'PctOccupMgmtProf',
+'MalePctDivorce',
+'MalePctNevMarr',
+'FemalePctDiv',
+'TotalPctDiv',
+'PersPerFam',
+'PctFam2Par',
+'PctKids2Par',
+'PctYoungKids2Par',
+'PctTeen2Par',
+'PctWorkMomYoungKids',
+'PctWorkMom',
+'NumKidsBornNeverMar',
+'PctKidsBornNeverMar',
+'NumImmig',
+'PctImmigRecent',
+'PctImmigRec5',
+'PctImmigRec8',
+'PctImmigRec10',
+'PctRecentImmig',
+'PctRecImmig5',
+'PctRecImmig8',
+'PctRecImmig10',
+'PctSpeakEnglOnly',
+'PctNotSpeakEnglWell',
+'PctLargHouseFam',
+'PctLargHouseOccup',
+'PersPerOccupHous',
+'PersPerOwnOccHous',
+'PersPerRentOccHous',
+'PctPersOwnOccup',
+'PctPersDenseHous',
+'PctHousLess3BR',
+'MedNumBR',
+'HousVacant',
+'PctHousOccup',
+'PctHousOwnOcc',
+'PctVacantBoarded',
+'PctVacMore6Mos',
+'MedYrHousBuilt',
+'PctHousNoPhone',
+'PctWOFullPlumb',
+'OwnOccLowQuart',
+'OwnOccMedVal',
+'OwnOccHiQuart',
+'OwnOccQrange',
+'RentLowQ',
+'RentMedian',
+'RentHighQ',
+'RentQrange',
+'MedRent',
+'MedRentPctHousInc',
+'MedOwnCostPctInc',
+'MedOwnCostPctIncNoMtg',
+'NumInShelters',
+'NumStreet',
+'PctForeignBorn',
+'PctBornSameState',
+'PctSameHouse85',
+'PctSameCity85',
+'PctSameState85',
+'LemasSwornFT',
+'LemasSwFTPerPop',
+'LemasSwFTFieldOps',
+'LemasSwFTFieldPerPop',
+'LemasTotalReq',
+'LemasTotReqPerPop',
+'PolicReqPerOffic',
+'PolicPerPop',
+'RacialMatchCommPol',
+'PctPolicWhite',
+'PctPolicBlack',
+'PctPolicHisp',
+'PctPolicAsian',
+'PctPolicMinor',
+'OfficAssgnDrugUnits',
+'NumKindsDrugsSeiz',
+'PolicAveOTWorked',
+'LandArea',
+'PopDens',
+'PctUsePubTrans',
+'PolicCars',
+'PolicOperBudg',
+'LemasPctPolicOnPatr',
+'LemasGangUnitDeploy',
+'LemasPctOfficDrugUn',
+'PolicBudgPerPop',
+'murders',
+'murdPerPop',
+'rapes',
+'rapesPerPop',
+'robberies',
+'robbbPerPop',
+'assaults',
+'assaultPerPop',
+'burglaries',
+'burglPerPop',
+'larcenies',
+'larcPerPop',
+'autoTheft',
+'autoTheftPerPop',
+'arsons',
+'arsonsPerPop',
+'ViolentCrimesPerPop',
+'nonViolPerPop'
+  )
+
+df <- crime_data %>%
+  mutate_all(funs(type.convert(as.character(replace(., .=='?', NA)))))
+
+df %>%
+  select (!state, !communityname) %>%
+  mutate_if(is.character,as.numeric)
+```
+
+```{r, cleaning NA crime rates}
+
+crimesrates_na <- df %>% 
+  filter(is.na(ViolentCrimesPerPop) | is.na(nonViolPerPop)) %>%
+  select(communityname,
+         state,
+         population,
+         murders,
+         murdPerPop,
+         rapes,
+         rapesPerPop,
+         robberies,
+         robbbPerPop,
+         assaults,
+         assaultPerPop,
+         burglaries,
+         burglPerPop,
+         larcenies,
+         larcPerPop,
+         autoTheft,
+         autoTheftPerPop,
+         arsons,
+         arsonsPerPop,
+         ViolentCrimesPerPop,
+         nonViolPerPop) %>%
+  arrange(desc(population))
+
+colSums(is.na(df))
+
+# Independent Counting of Violent/non-Violent Crime Rates.
+
+df <- df %>%
+  mutate(medIncomein000s = medIncome/1000) %>%
+  mutate(PctShelter = (NumInShelters/population)*100) %>%
+  mutate(new_murdPerPop = ifelse(is.na(murdPerPop), median(murdPerPop, na.rm=TRUE), murdPerPop)) %>%
+  mutate(new_rapesPerPop = ifelse(is.na(rapesPerPop), median(rapesPerPop, na.rm=TRUE), rapesPerPop)) %>%
+  mutate(new_robbbPerPop = ifelse(is.na(robbbPerPop), median(robbbPerPop, na.rm=TRUE), robbbPerPop)) %>%
+  mutate(new_assaultPerPop = ifelse(is.na(assaultPerPop), median(assaultPerPop, na.rm=TRUE), assaultPerPop)) %>%
+  mutate(new_burglPerPop = ifelse(is.na(burglPerPop), median(burglPerPop, na.rm=TRUE), burglPerPop)) %>%
+  mutate(new_larcPerPop = ifelse(is.na(larcPerPop), median(larcPerPop, na.rm=TRUE), larcPerPop)) %>%
+  mutate(new_autoTheftPerPop = ifelse(is.na(autoTheftPerPop), median(autoTheftPerPop, na.rm=TRUE), autoTheftPerPop)) %>%
+  mutate(new_arsonsPerPop = ifelse(is.na(arsonsPerPop), median(arsonsPerPop, na.rm=TRUE), arsonsPerPop)) %>%
+  mutate(calc_ViolentCrimesPerPop = new_murdPerPop + new_rapesPerPop + new_robbbPerPop + new_assaultPerPop) %>%
+  mutate(calc_nonViolPerPop = new_burglPerPop + new_larcPerPop + new_autoTheftPerPop + new_arsonsPerPop) %>%
+  mutate(diff_violentCrimesperPop = round(calc_ViolentCrimesPerPop - ViolentCrimesPerPop, digits = 1)) %>%
+  mutate(diff_nonViolPerPop = round(calc_nonViolPerPop - nonViolPerPop, digits = 1)) %>%
+  mutate(totCrimesPerPop = calc_ViolentCrimesPerPop + calc_nonViolPerPop)
+
+```
+
+```{r, df selecting for prediction variables and covarites of choice}
+
+df_select <- df %>%
+  select(communityname,
+         population,
+         state,
+         medIncome,
+         medIncomein000s,
+         PctRecImmig5,
+         PctNotHSGrad,
+         PctUnemployed,
+         PopDens,
+         LemasSwornFT,
+         PctFam2Par,
+         PctPopUnderPov,
+         PctVacMore6Mos,
+         PctShelter, # addtl covariate
+         MedYrHousBuilt, # addtl covariate lead exposure/violence correlation
+         new_murdPerPop,
+         new_rapesPerPop,
+         new_robbbPerPop,
+         new_assaultPerPop,
+         new_burglPerPop,
+         new_larcPerPop,
+         new_autoTheftPerPop,
+         new_arsonsPerPop,
+         calc_ViolentCrimesPerPop,
+         calc_nonViolPerPop,
+         totCrimesPerPop)
+
+
+colSums(is.na(df_select))
+
+write.csv(df_select, "src/data/processed/crimerates_cleaned.csv", row.names = FALSE)
+
+```
+
+```{r plot output variable}
+
+summary(crime_data$LemasSwornFT)
+
+summary(df$population)
+summary(df$murdPerPop)
+summary(df$rapesPerPop)
+summary(df$robbbPerPop)
+summary(df$assaultPerPop)
+summary(df$burglPerPop)
+summary(df$larcPerPop)
+summary(df$autoTheftPerPop)
+summary(df$arsonsPerPop)
+
+ggplot(data = df, aes(x = calc_ViolentCrimesPerPop)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of violent crime rate", x = "Crime Rate", y = "Count") 
+
+ggplot(data = df, aes(x = calc_nonViolPerPop)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of non-violent crime rate", x = "Crime Rate", y = "Count") 
+
+ggplot(data = df, aes(x = totCrimesPerPop)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of total crime rate", x = "Crime Rate", y = "Count") 
+```
+
+```{r}
+
+low_violence <- df_select %>%
+  filter(calc_ViolentCrimesPerPop > median(calc_ViolentCrimesPerPop)) %>%
+  arrange(calc_ViolentCrimesPerPop)
+
+```
+
+

@@ -1,0 +1,197 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+```{r}
+library(tidyverse)
+library(patchwork)
+library(stargazer)
+library(sandwich)
+library(lmtest)
+library(reshape)
+```
+
+```{r}
+data <- read.csv("~/Desktop/W203/github/lab_02_section_08_team_04/src/data/raw/CommViolPredUnnormalizedData.txt", header=FALSE)
+data
+header <- c("communityname",
+"state",
+"countyCode",
+"communityCode",
+"fold",
+"population",
+"householdsize",
+"racepctblack",
+"racePctWhite",
+"racePctAsian",
+"racePctHisp",
+"agePct12t21",
+"agePct12t29",
+"agePct16t24",
+"agePct65up",
+"numbUrban",
+"pctUrban",
+"medIncome",
+"pctWWage",
+"pctWFarmSelf",
+"pctWInvInc",
+"pctWSocSec",
+"pctWPubAsst",
+"pctWRetire",
+"medFamInc",
+"perCapInc",
+"whitePerCap",
+"blackPerCap",
+"indianPerCap",
+"AsianPerCap",
+"OtherPerCap",
+"HispPerCap",
+"NumUnderPov",
+"PctPopUnderPov",
+"PctLess9thGrade",
+"PctNotHSGrad",
+"PctBSorMore",
+"PctUnemployed",
+"PctEmploy",
+"PctEmplManu",
+"PctEmplProfServ",
+"PctOccupManu",
+"PctOccupMgmtProf",
+"MalePctDivorce",
+"MalePctNevMarr",
+"FemalePctDiv",
+"TotalPctDiv",
+"PersPerFam",
+"PctFam2Par",
+"PctKids2Par",
+"PctYoungKids2Par",
+"PctTeen2Par",
+"PctWorkMomYoungKids",
+"PctWorkMom",
+"NumKidsBornNeverMar",
+"PctKidsBornNeverMar",
+"NumImmig",
+"PctImmigRecent",
+"PctImmigRec5",
+"PctImmigRec8",
+"PctImmigRec10",
+"PctRecentImmig",
+"PctRecImmig5",
+"PctRecImmig8",
+"PctRecImmig10",
+"PctSpeakEnglOnly",
+"PctNotSpeakEnglWell",
+"PctLargHouseFam",
+"PctLargHouseOccup",
+"PersPerOccupHous",
+"PersPerOwnOccHous",
+"PersPerRentOccHous",
+"PctPersOwnOccup",
+"PctPersDenseHous",
+"PctHousLess3BR",
+"MedNumBR",
+"HousVacant",
+"PctHousOccup",
+"PctHousOwnOcc",
+"PctVacantBoarded",
+"PctVacMore6Mos",
+"MedYrHousBuilt",
+"PctHousNoPhone",
+"PctWOFullPlumb",
+"OwnOccLowQuart",
+"OwnOccMedVal",
+"OwnOccHiQuart",
+"OwnOccQrange",
+"RentLowQ",
+"RentMedian",
+"RentHighQ",
+"RentQrange",
+"MedRent",
+"MedRentPctHousInc",
+"MedOwnCostPctInc",
+"MedOwnCostPctIncNoMtg",
+"NumInShelters",
+"NumStreet",
+"PctForeignBorn",
+"PctBornSameState",
+"PctSameHouse85",
+"PctSameCity85",
+"PctSameState85",
+"LemasSwornFT",
+"LemasSwFTPerPop",
+"LemasSwFTFieldOps",
+"LemasSwFTFieldPerPop",
+"LemasTotalReq",
+"LemasTotReqPerPop",
+"PolicReqPerOffic",
+"PolicPerPop",
+"RacialMatchCommPol",
+"PctPolicWhite",
+"PctPolicBlack",
+"PctPolicHisp",
+"PctPolicAsian",
+"PctPolicMinor",
+"OfficAssgnDrugUnits",
+"NumKindsDrugsSeiz",
+"PolicAveOTWorked",
+"LandArea",
+"PopDens",
+"PctUsePubTrans",
+"PolicCars",
+"PolicOperBudg",
+"LemasPctPolicOnPatr",
+"LemasGangUnitDeploy",
+"LemasPctOfficDrugUn",
+"PolicBudgPerPop",
+"murders",
+"murdPerPop",
+"rapes",
+"rapesPerPop",
+"robberies",
+"robbbPerPop",
+"assaults",
+"assaultPerPop",
+"burglaries",
+"burglPerPop",
+"larcenies",
+"larcPerPop",
+"autoTheft",
+"autoTheftPerPop",
+"arsons",
+"arsonsPerPop",
+"ViolentCrimesPerPop",
+"nonViolPerPop")
+colnames(data) <- header
+data
+data$ViolentCrimesPerPop <- as.numeric(data$ViolentCrimesPerPop)
+data$nonViolPerPop <- as.numeric(data$nonViolPerPop)
+data$totalCrimes <- data$ViolentCrimesPerPop + data$nonViolPerPop
+data$LemasSwornFT <- as.numeric(data$LemasSwornFT)
+data
+```
+```{r}
+model_1 <- lm(totalCrimes ~ medIncome, data = data)
+model_2 <- lm(totalCrimes ~ medIncome + PctRecImmig5 + PctNotHSGrad + PctUnemployed + PopDens + LemasSwornFT, data = data)
+model_3 <- lm(log10(totalCrimes) ~ medIncome + PctRecImmig5 + PctNotHSGrad + PctUnemployed + PopDens + LemasSwornFT + PctFam2Par + PctPopUnderPov + PctVacMore6Mos, data = data)
+```
+
+```{r}
+coeftest(model_1, vcov = vcovHC(model_1))
+coeftest(model_2, vcov = vcovHC(model_2))
+coeftest(model_3, vcov = vcovHC(model_3))
+
+summary(model_1)
+summary(model_2)
+summary(model_3)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+

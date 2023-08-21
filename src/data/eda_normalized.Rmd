@@ -1,0 +1,169 @@
+---
+title: "203 Lab 2"
+author: "Dominic Lim, Emerald Swei, Shalini Chawla"
+date: "Mar 21, 2022"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+```{r load packages, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(magrittr)
+library(ggplot2)
+library(patchwork)
+library(sandwich)
+library(lmtest)
+```
+
+```{r set themes, echo=FALSE}
+theme_set(theme_minimal())
+knitr::opts_chunk$set(dpi = 300)
+```
+
+```{r load data}
+crime_data <- read.csv('raw/communities.data', header=FALSE, sep=',')
+
+colnames(crime_data) <- c(
+"state", 
+"county", 
+"community", 
+"communityname",
+"fold",
+"population",
+"householdsize",
+"racepctblack",
+"racePctWhite",
+"racePctAsian",
+"racePctHisp",
+"agePct12t21",
+"agePct12t29",
+"agePct16t24",
+"agePct65up",
+"numbUrban",
+"pctUrban",
+"medIncome",
+"pctWWage",
+"pctWFarmSelf",
+"pctWInvInc",
+"pctWSocSec",
+"pctWPubAsst",
+"pctWRetire",
+"medFamInc",
+"perCapInc",
+"whitePerCap",
+"blackPerCap",
+"indianPerCap",
+"AsianPerCap",
+"OtherPerCap",
+"HispPerCap",
+"NumUnderPov",
+"PctPopUnderPov",
+"PctLess9thGrade",
+"PctNotHSGrad",
+"PctBSorMore",
+"PctUnemployed",
+"PctEmploy",
+"PctEmplManu",
+"PctEmplProfServ",
+"PctOccupManu",
+"PctOccupMgmtProf",
+"MalePctDivorce",
+"MalePctNevMarr",
+"FemalePctDiv",
+"TotalPctDiv",
+"PersPerFam",
+"PctFam2Par",
+"PctKids2Par",
+"PctYoungKids2Par",
+"PctTeen2Par",
+"PctWorkMomYoungKids",
+"PctWorkMom",
+"NumIlleg",
+"PctIlleg",
+"NumImmig",
+"PctImmigRecent",
+"PctImmigRec5",
+"PctImmigRec8",
+"PctImmigRec10",
+"PctRecentImmig",
+"PctRecImmig5",
+"PctRecImmig8",
+"PctRecImmig10",
+"PctSpeakEnglOnly",
+"PctNotSpeakEnglWell",
+"PctLargHouseFam",
+"PctLargHouseOccup",
+"PersPerOccupHous",
+"PersPerOwnOccHous",
+"PersPerRentOccHous",
+"PctPersOwnOccup",
+"PctPersDenseHous",
+"PctHousLess3BR",
+"MedNumBR",
+"HousVacant",
+"PctHousOccup",
+"PctHousOwnOcc",
+"PctVacantBoarded",
+"PctVacMore6Mos",
+"MedYrHousBuilt",
+"PctHousNoPhone",
+"PctWOFullPlumb",
+"OwnOccLowQuart",
+"OwnOccMedVal",
+"OwnOccHiQuart",
+"RentLowQ",
+"RentMedian",
+"RentHighQ",
+"MedRent",
+"MedRentPctHousInc",
+"MedOwnCostPctInc",
+"MedOwnCostPctIncNoMtg",
+"NumInShelters",
+"NumStreet",
+"PctForeignBorn",
+"PctBornSameState",
+"PctSameHouse85",
+"PctSameCity85",
+"PctSameState85",
+"LemasSwornFT",
+"LemasSwFTPerPop",
+"LemasSwFTFieldOps",
+"LemasSwFTFieldPerPop",
+"LemasTotalReq",
+"LemasTotReqPerPop",
+"PolicReqPerOffic",
+"PolicPerPop",
+"RacialMatchCommPol",
+"PctPolicWhite",
+"PctPolicBlack",
+"PctPolicHisp",
+"PctPolicAsian",
+"PctPolicMinor",
+"OfficAssgnDrugUnits",
+"NumKindsDrugsSeiz",
+"PolicAveOTWorked",
+"LandArea",
+"PopDens",
+"PctUsePubTrans",
+"PolicCars",
+"PolicOperBudg",
+"LemasPctPolicOnPatr",
+"LemasGangUnitDeploy",
+"LemasPctOfficDrugUn",
+"PolicBudgPerPop",
+"ViolentCrimesPerPop"
+  )
+```
+
+```{r plot output variable}
+
+nrow(crime_data)
+
+ggplot(data = crime_data, aes(x = ViolentCrimesPerPop)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Distribution of crime rate", x = "Crime Rate", y = "Count") 
+```
